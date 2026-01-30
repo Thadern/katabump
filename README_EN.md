@@ -63,7 +63,7 @@ Open the `renew.js` file and look for lines 11-12:
 
 ```javascript
 const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const USER_DATA_DIR = "C:\\ChromeData_Katabump";
+const USER_DATA_DIR = path.join(__dirname, 'ChromeData_Katabump');
 const HEADLESS = false;
 ```
 

@@ -9,7 +9,7 @@ const http = require('http');
 chromium.use(stealth);
 
 const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const USER_DATA_DIR = "C:\\ChromeData_Katabump";
+const USER_DATA_DIR = path.join(__dirname, 'ChromeData_Katabump');
 const DEBUG_PORT = 9222;
 const HEADLESS = false;
 
@@ -102,7 +102,8 @@ async function launchNativeChrome() {
         `--remote-debugging-port=${DEBUG_PORT}`,
         `--user-data-dir=${USER_DATA_DIR}`,
         '--no-first-run',
-        '--no-default-browser-check'
+        '--no-default-browser-check',
+        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     ];
     if (HEADLESS) {
         args.push('--headless=new');
