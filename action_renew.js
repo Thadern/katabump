@@ -361,6 +361,29 @@ async function attemptTurnstileCdp(page) {
                 const pwdInput = page.getByRole('textbox', { name: 'Password' });
                 await pwdInput.fill(user.password);
                 await page.waitForTimeout(500);
+                // A. 在模态框里晃晃鼠标
+                try {
+                    const box = await modal.boundingBox();
+                    if (box) await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
+                } catch (e) { }
+
+                // B. 找 Turnstile (小重试)
+                console.log('正在检查 Turnstile (使用 CDP 绕过)...');
+                let cdpClickResult = false;
+                for (let findAttempt = 0; findAttempt < 30; findAttempt++) {
+                    cdpClickResult = await attemptTurnstileCdp(page);
+                    if (cdpClickResult) break;
+                    console.log(`   >> [寻找尝试 ${findAttempt + 1}/30] 尚未找到 Turnstile 复选框...`);
+                    await page.waitForTimeout(1000);
+                }
+
+                let isTurnstileSuccess = false;
+                if (cdpClickResult) {
+                    console.log('   >> CDP 点击生效。等待 8秒 Cloudflare 检查...');
+                    await page.waitForTimeout(8000);
+                } else {
+                    console.log('   >> 重试后仍未确认 Turnstile 复选框。');
+                }
                 await page.getByRole('button', { name: 'Login', exact: true }).click();
 
                 // User Request: Check for incorrect password
