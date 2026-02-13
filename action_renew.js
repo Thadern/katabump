@@ -366,8 +366,19 @@ async function attemptTurnstileCdp(page) {
                 // User Request: Check for incorrect password
                 try {
                     await page.waitForTimeout(3000);
-                    const failShotPath = path.join(photoDir, `${safeUsername}.png`);
-                    try { await page.screenshot({ path: failShotPath, fullPage: true }); } catch (e) { }
+                    const fs = require('fs');
+                    const path = require('path');
+                    const photoDir = path.join(process.cwd(), 'screenshots');
+                    if (!fs.existsSync(photoDir)) fs.mkdirSync(photoDir, { recursive: true });
+                    // Use safe filename
+                    const safeUsername = user.username.replace(/[^a-z0-9]/gi, '_');
+                    const screenshotPath = path.join(photoDir, `${safeUsername}.png`);
+                    try {
+                        await page.screenshot({ path: screenshotPath, fullPage: true });
+                        console.log(`截图已保存至: ${screenshotPath}`);
+                    } catch (e) {
+                        console.log('截图失败:', e.message);
+                    }
                     const errorMsg = page.getByText('Incorrect password or no account');
                     if (await errorMsg.isVisible({ timeout: 3000 })) {
                         console.error(`   >> ❌ 登录失败: 用户 ${user.username} 账号或密码错误`);
@@ -386,9 +397,13 @@ async function attemptTurnstileCdp(page) {
 
             console.log('正在寻找 "See" 链接...');
             try {
-                await page.waitForTimeout(3000);
-                const failShotPath = path.join(photoDir, `${safeUsername}2.png`);
-                try { await page.screenshot({ path: failShotPath, fullPage: true }); } catch (e) { }
+                const screenshotPath = path.join(photoDir, `${safeUsername}2.png`);
+                try {
+                    await page.screenshot({ path: screenshotPath, fullPage: true });
+                    console.log(`截图已保存至: ${screenshotPath}`);
+                } catch (e) {
+                    console.log('截图失败:', e.message);
+                }
                 await page.getByRole('link', { name: 'See' }).first().waitFor({ timeout: 15000 });
                 await page.waitForTimeout(1000);
                 await page.getByRole('link', { name: 'See' }).first().click();
