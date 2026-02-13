@@ -420,13 +420,6 @@ async function attemptTurnstileCdp(page) {
 
             console.log('正在寻找 "See" 链接...');
             try {
-                const screenshotPath = path.join(photoDir, `${safeUsername}2.png`);
-                try {
-                    await page.screenshot({ path: screenshotPath, fullPage: true });
-                    console.log(`截图已保存至: ${screenshotPath}`);
-                } catch (e) {
-                    console.log('截图失败:', e.message);
-                }
                 await page.getByRole('link', { name: 'See' }).first().waitFor({ timeout: 15000 });
                 await page.waitForTimeout(1000);
                 await page.getByRole('link', { name: 'See' }).first().click();
