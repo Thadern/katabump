@@ -276,53 +276,96 @@ async function attemptTurnstileCdp(page) {
 }
 
 async function attemptALTCHACdp(page) {
-    const frames = page.frames();
-    for (const frame of frames) {
+    const dispatchCdpClick = async (clickX, clickY) => {
+        const client = await page.context().newCDPSession(page);
+
         try {
-            // 1. Check for Turnstile (Existing logic)
-            const turnstileData = await frame.evaluate(() => window.__turnstile_data).catch(() => null);
-            if (turnstileData) {
-                console.log('>> Found Turnstile in frame:', turnstileData);
-                const iframeElement = await frame.frameElement();
-                if (iframeElement) {
-                    const box = await iframeElement.boundingBox();
-                    if (box) {
-                        const clickX = box.x + (box.width * turnstileData.xRatio);
-                        const clickY = box.y + (box.height * turnstileData.yRatio);
-                        const client = await page.context().newCDPSession(page);
-                        await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: clickX, y: clickY, button: 'left', clickCount: 1 });
-                        await new Promise(r => setTimeout(r, 100));
-                        await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: clickX, y: clickY, button: 'left', clickCount: 1 });
-                        await client.detach();
-                        return true;
-                    }
-                }
-            }
+            await client.send('Input.dispatchMouseEvent', {
+                type: 'mousePressed',
+                x: clickX,
+                y: clickY,
+                button: 'left',
+                clickCount: 1
+            });
 
-            // 2. Check for Altcha (New adaptation)
-            const altchaInfo = await frame.evaluate(() => {
-                const widget = document.querySelector('altcha-widget');
-                if (widget && widget.shadowRoot) {
-                    const cb = widget.shadowRoot.querySelector('input[type="checkbox"]');
-                    if (cb) {
-                        const rect = cb.getBoundingClientRect();
-                        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, found: true };
-                    }
-                }
-                return { found: false };
-            }).catch(() => ({ found: false }));
+            await new Promise(r => setTimeout(r, 50 + Math.random() * 100));
 
-            if (altchaInfo.found) {
-                console.log('>> Found Altcha widget, attempting click...');
-                const client = await page.context().newCDPSession(page);
-                await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: altchaInfo.x, y: altchaInfo.y, button: 'left', clickCount: 1 });
-                await new Promise(r => setTimeout(r, 100));
-                await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: altchaInfo.x, y: altchaInfo.y, button: 'left', clickCount: 1 });
-                await client.detach();
-                console.log('>> Altcha checkbox clicked.');
+            await client.send('Input.dispatchMouseEvent', {
+                type: 'mouseReleased',
+                x: clickX,
+                y: clickY,
+                button: 'left',
+                clickCount: 1
+            });
+        } finally {
+            await client.detach().catch(() => { });
+        }
+    };
+
+    const isAltchaVerified = async (altchaWidget) => {
+        const altchaState = await altchaWidget.locator('.altcha').first().getAttribute('data-state').catch(() => null);
+        const altchaValue = await altchaWidget.locator('input[name="altcha"]').first().getAttribute('value').catch(() => null);
+        return altchaState === 'verified' && Boolean(altchaValue);
+    };
+
+    // Renew modal now uses ALTCHA instead of Cloudflare Turnstile.
+    try {
+        const altchaWidget = page.locator('#renew-modal altcha-widget').first();
+        if (await altchaWidget.isVisible({ timeout: 500 }).catch(() => false)) {
+            if (await isAltchaVerified(altchaWidget)) {
+                console.log('>> ALTCHA 已经验证通过。');
                 return true;
             }
 
+            const altchaCheckbox = altchaWidget.locator('input[type="checkbox"]').first();
+            if (await altchaCheckbox.isVisible({ timeout: 500 }).catch(() => false)) {
+                const box = await altchaCheckbox.boundingBox();
+                if (box) {
+                    const clickX = box.x + box.width / 2;
+                    const clickY = box.y + box.height / 2;
+
+                    console.log(`>> 在 Renew 模态框中发现 ALTCHA。点击坐标: (${clickX.toFixed(2)}, ${clickY.toFixed(2)})`);
+                    await dispatchCdpClick(clickX, clickY);
+                    console.log('>> ALTCHA CDP 点击已发送。等待验证结果...');
+
+                    for (let waitAttempt = 0; waitAttempt < 20; waitAttempt++) {
+                        if (await isAltchaVerified(altchaWidget)) {
+                            console.log('>> ALTCHA 验证通过，已生成隐藏 altcha 字段。');
+                            return true;
+                        }
+                        await page.waitForTimeout(500);
+                    }
+
+                    console.log('>> ALTCHA 点击后尚未生成验证字段。');
+                    return false;
+                }
+            }
+        }
+    } catch (e) { }
+
+    const frames = page.frames();
+    for (const frame of frames) {
+        try {
+            const data = await frame.evaluate(() => window.__turnstile_data).catch(() => null);
+
+            if (data) {
+                console.log('>> 在 frame 中发现 Turnstile。比例:', data);
+
+                const iframeElement = await frame.frameElement();
+                if (!iframeElement) continue;
+
+                const box = await iframeElement.boundingBox();
+                if (!box) continue;
+
+                const clickX = box.x + (box.width * data.xRatio);
+                const clickY = box.y + (box.height * data.yRatio);
+
+                console.log(`>> 计算点击坐标: (${clickX.toFixed(2)}, ${clickY.toFixed(2)})`);
+
+                await dispatchCdpClick(clickX, clickY);
+                console.log('>> CDP 点击已发送。');
+                return true;
+            }
         } catch (e) { }
     }
     return false;
@@ -488,7 +531,7 @@ async function attemptALTCHACdp(page) {
 
                 // 1. 如果是重试 (attempt > 1)，说明之前失败了或者刚刷新完页面
                 // 我们直接开始寻找 Renew 按钮
-                console.log(`\n[尝试 ${attempt}/5] 正在寻找 Renew 按钮...`);
+                console.log(`\n[尝试 ${attempt}/20] 正在寻找 Renew 按钮...`);
 
                 const renewBtn = page.getByRole('button', { name: 'Renew', exact: true }).first();
                 try {
