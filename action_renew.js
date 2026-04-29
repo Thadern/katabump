@@ -275,6 +275,59 @@ async function attemptTurnstileCdp(page) {
     return false;
 }
 
+async function attemptALTCHACdp(page) {
+    const frames = page.frames();
+    for (const frame of frames) {
+        try {
+            // 1. Check for Turnstile (Existing logic)
+            const turnstileData = await frame.evaluate(() => window.__turnstile_data).catch(() => null);
+            if (turnstileData) {
+                console.log('>> Found Turnstile in frame:', turnstileData);
+                const iframeElement = await frame.frameElement();
+                if (iframeElement) {
+                    const box = await iframeElement.boundingBox();
+                    if (box) {
+                        const clickX = box.x + (box.width * turnstileData.xRatio);
+                        const clickY = box.y + (box.height * turnstileData.yRatio);
+                        const client = await page.context().newCDPSession(page);
+                        await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: clickX, y: clickY, button: 'left', clickCount: 1 });
+                        await new Promise(r => setTimeout(r, 100));
+                        await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: clickX, y: clickY, button: 'left', clickCount: 1 });
+                        await client.detach();
+                        return true;
+                    }
+                }
+            }
+
+            // 2. Check for Altcha (New adaptation)
+            const altchaInfo = await frame.evaluate(() => {
+                const widget = document.querySelector('altcha-widget');
+                if (widget && widget.shadowRoot) {
+                    const cb = widget.shadowRoot.querySelector('input[type="checkbox"]');
+                    if (cb) {
+                        const rect = cb.getBoundingClientRect();
+                        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, found: true };
+                    }
+                }
+                return { found: false };
+            }).catch(() => ({ found: false }));
+
+            if (altchaInfo.found) {
+                console.log('>> Found Altcha widget, attempting click...');
+                const client = await page.context().newCDPSession(page);
+                await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: altchaInfo.x, y: altchaInfo.y, button: 'left', clickCount: 1 });
+                await new Promise(r => setTimeout(r, 100));
+                await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: altchaInfo.x, y: altchaInfo.y, button: 'left', clickCount: 1 });
+                await client.detach();
+                console.log('>> Altcha checkbox clicked.');
+                return true;
+            }
+
+        } catch (e) { }
+    }
+    return false;
+}
+
 (async () => {
     const users = getUsers();
     if (users.length === 0) {
@@ -365,7 +418,7 @@ async function attemptTurnstileCdp(page) {
                 // --- Cloudflare Turnstile Bypass for Login ---
                 console.log('   >> 正在登录前检查 Turnstile (使用 CDP 绕过)...');
                 let cdpClickResult = false;
-                for (let findAttempt = 0; findAttempt < 15; findAttempt++) {
+                for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
                     cdpClickResult = await attemptTurnstileCdp(page);
                     if (cdpClickResult) break;
                     await page.waitForTimeout(1000);
@@ -429,13 +482,13 @@ async function attemptTurnstileCdp(page) {
 
             // --- Renew 逻辑 ---
             let renewSuccess = false;
-            // 2. 一个扁平化的主循环：尝试 Renew 整个流程 (最多 20 次)
-            for (let attempt = 1; attempt <= 20; attempt++) {
+            // 2. 一个扁平化的主循环：尝试 Renew 整个流程 (最多 5 次)
+            for (let attempt = 1; attempt <= 5; attempt++) {
                 let hasCaptchaError = false;
 
                 // 1. 如果是重试 (attempt > 1)，说明之前失败了或者刚刷新完页面
                 // 我们直接开始寻找 Renew 按钮
-                console.log(`\n[尝试 ${attempt}/20] 正在寻找 Renew 按钮...`);
+                console.log(`\n[尝试 ${attempt}/5] 正在寻找 Renew 按钮...`);
 
                 const renewBtn = page.getByRole('button', { name: 'Renew', exact: true }).first();
                 try {
@@ -462,10 +515,10 @@ async function attemptTurnstileCdp(page) {
                     // B. 找 Turnstile (小重试)
                     console.log('正在检查 Turnstile (使用 CDP 绕过)...');
                     let cdpClickResult = false;
-                    for (let findAttempt = 0; findAttempt < 30; findAttempt++) {
-                        cdpClickResult = await attemptTurnstileCdp(page);
+                    for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
+                        cdpClickResult = await attemptALTCHACdp(page);
                         if (cdpClickResult) break;
-                        console.log(`   >> [寻找尝试 ${findAttempt + 1}/30] 尚未找到 Turnstile 复选框...`);
+                        console.log(`   >> [寻找尝试 ${findAttempt + 1}/5] 尚未找到 Turnstile 复选框...`);
                         await page.waitForTimeout(1000);
                     }
 
