@@ -514,12 +514,24 @@ async function attemptALTCHACdp(page) {
             }
 
             console.log('正在寻找 "See" 链接...');
-            try {
-                await page.getByRole('link', { name: 'See' }).first().waitFor({ timeout: 15000 });
-                await page.waitForTimeout(1000);
-                await page.getByRole('link', { name: 'See' }).first().click();
-            } catch (e) {
-                console.log('未找到 "See" 按钮。');
+            let seeClicked = false;
+            for (let seeAttempt = 1; seeAttempt <= 3; seeAttempt++) {
+                try {
+                    await page.getByRole('link', { name: 'See' }).first().waitFor({ timeout: 15000 });
+                    await page.waitForTimeout(1000);
+                    await page.getByRole('link', { name: 'See' }).first().click();
+                    seeClicked = true;
+                    console.log(`"See" 链接已点击 (第 ${seeAttempt} 次尝试)。`);
+                    break;
+                } catch (e) {
+                    console.log(`未找到 "See" 按钮 (尝试 ${seeAttempt}/3)。`);
+                    if (seeAttempt < 3) {
+                        await page.waitForTimeout(1000);
+                    }
+                }
+            }
+            if (!seeClicked) {
+                console.log('三次尝试后仍未找到 "See" 按钮，跳过。');
                 continue;
             }
 
@@ -531,7 +543,7 @@ async function attemptALTCHACdp(page) {
 
                 // 1. 如果是重试 (attempt > 1)，说明之前失败了或者刚刷新完页面
                 // 我们直接开始寻找 Renew 按钮
-                console.log(`\n[尝试 ${attempt}/20] 正在寻找 Renew 按钮...`);
+                console.log(`\n[尝试 ${attempt}/5] 正在寻找 Renew 按钮...`);
 
                 const renewBtn = page.getByRole('button', { name: 'Renew', exact: true }).first();
                 try {
