@@ -514,6 +514,7 @@ async function attemptALTCHACdp(page) {
             }
 
             console.log('正在寻找 "See" 链接...');
+            console.log(`  >> 当前页面 URL: ${page.url()}`);
             let seeClicked = false;
             for (let seeAttempt = 1; seeAttempt <= 3; seeAttempt++) {
                 try {
@@ -524,14 +525,61 @@ async function attemptALTCHACdp(page) {
                     console.log(`"See" 链接已点击 (第 ${seeAttempt} 次尝试)。`);
                     break;
                 } catch (e) {
-                    console.log(`未找到 "See" 按钮 (尝试 ${seeAttempt}/3)。`);
+                    console.log(`未找到 "See" 按钮 (尝试 ${seeAttempt}/3)。错误: ${e.message}`);
                     if (seeAttempt < 3) {
-                        await page.waitForTimeout(1000);
+                        // 尝试短暂刷新，以防页面还在渲染
+                        console.log('  >> 刷新页面并重试...');
+                        await page.reload({ waitUntil: 'networkidle' });
+                        await page.waitForTimeout(2000);
                     }
                 }
             }
             if (!seeClicked) {
-                console.log('三次尝试后仍未找到 "See" 按钮，跳过。');
+                console.log('三次尝试后仍未找到 "See" 按钮，保存诊断信息...');
+
+                // === DIAGNOSTIC: Save screenshot + page HTML ===
+                const debugDir = path.join(process.cwd(), 'debug_screenshots');
+                if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+
+                const safeUser = user.username.replace(/[^a-z0-9]/gi, '_');
+                const debugShot = path.join(debugDir, `${safeUser}_no_see_link.png`);
+                const debugHtml = path.join(debugDir, `${safeUser}_no_see_link.html`);
+
+                try {
+                    await page.screenshot({ path: debugShot, fullPage: true });
+                    console.log(`  >> 📸 诊断截图已保存: ${debugShot}`);
+                } catch (e) {
+                    console.log(`  >> 截图失败: ${e.message}`);
+                }
+
+                try {
+                    const htmlContent = await page.content();
+                    fs.writeFileSync(debugHtml, htmlContent);
+                    console.log(`  >> 📄 诊断 HTML 已保存: ${debugHtml}`);
+                } catch (e) {
+                    console.log(`  >> HTML 保存失败: ${e.message}`);
+                }
+
+                // 列出页面上所有 text 内容较短的 <a> 链接，便于人工分析
+                try {
+                    const allLinks = await page.evaluate(() => {
+                        return Array.from(document.querySelectorAll('a')).map(a => ({
+                            text: a.textContent.trim().slice(0, 80),
+                            href: a.href.slice(0, 120),
+                            visible: a.offsetParent !== null
+                        })).filter(l => l.text.length > 0);
+                    });
+                    console.log(`  >> 页面上可见链接 (样本前 20 个):`);
+                    const visibleLinks = allLinks.filter(l => l.visible).slice(0, 20);
+                    for (const link of visibleLinks) {
+                        console.log(`     text="${link.text}" | href="${link.href}"`);
+                    }
+                } catch (e) {
+                    console.log(`  >> 提取链接列表失败: ${e.message}`);
+                }
+                // === END DIAGNOSTIC ===
+
+                await sendTelegramMessage(`❌ *续期失败*\n用户: ${user.username}\n原因: 未找到 "See" 链接 (3次重试)\n页面URL: ${page.url()}`, debugShot);
                 await page.goto('https://dashboard.katabump.com/servers/edit?id=218222');
                 continue;
             }
