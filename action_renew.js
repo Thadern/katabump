@@ -532,6 +532,7 @@ async function attemptALTCHACdp(page) {
             }
             if (!seeClicked) {
                 console.log('三次尝试后仍未找到 "See" 按钮，跳过。');
+                await page.goto('https://dashboard.katabump.com/servers/edit?id=218222');
                 continue;
             }
 
