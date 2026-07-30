@@ -516,7 +516,7 @@ async function attemptALTCHACdp(page) {
             console.log('正在寻找 "See" 链接...');
             console.log(`  >> 当前页面 URL: ${page.url()}`);
             let seeClicked = false;
-            for (let seeAttempt = 1; seeAttempt <= 3; seeAttempt++) {
+            for (let seeAttempt = 1; seeAttempt <= 1; seeAttempt++) {
                 try {
                     await page.getByRole('link', { name: 'See' }).first().waitFor({ timeout: 15000 });
                     await page.waitForTimeout(1000);
