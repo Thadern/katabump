@@ -61,42 +61,42 @@ const HTTP_PROXY = process.env.HTTP_PROXY;
 let PROXY_CONFIG = null;
 
 async function detectSingboxProxy() {
-  if (!PROXY_URL) return false;
-  try {
-    await axios.get('http://127.0.0.1:8080', { timeout: 2000, proxy: false });
-    return true;
-  } catch (e) {
-    return e.code !== 'ECONNREFUSED';
-  }
+    if (!PROXY_URL) return false;
+    try {
+        await axios.get('http://127.0.0.1:8080', { timeout: 2000, proxy: false });
+        return true;
+    } catch (e) {
+        return e.code !== 'ECONNREFUSED';
+    }
 }
 
 async function resolveProxyConfig() {
-  // 1. If PROXY_URL is set, sing-box should be running locally on 8080
-  if (PROXY_URL) {
-    const isSingboxUp = await detectSingboxProxy();
-    if (isSingboxUp) {
-      PROXY_CONFIG = { server: SINGBOX_LOCAL_PROXY };
-      console.log(`[Proxy] sing-box detected on ${SINGBOX_LOCAL_PROXY}`);
-      return;
+    // 1. If PROXY_URL is set, sing-box should be running locally on 8080
+    if (PROXY_URL) {
+        const isSingboxUp = await detectSingboxProxy();
+        if (isSingboxUp) {
+            PROXY_CONFIG = { server: SINGBOX_LOCAL_PROXY };
+            console.log(`[Proxy] sing-box detected on ${SINGBOX_LOCAL_PROXY}`);
+            return;
+        }
+        console.log('[Proxy] PROXY_URL set but sing-box not responding on 8080, falling back to HTTP_PROXY');
     }
-    console.log('[Proxy] PROXY_URL set but sing-box not responding on 8080, falling back to HTTP_PROXY');
-  }
 
-  // 2. Fallback to HTTP_PROXY (traditional http://user:pass@host:port)
-  if (HTTP_PROXY) {
-    try {
-      const proxyUrl = new URL(HTTP_PROXY);
-      PROXY_CONFIG = {
-        server: `${proxyUrl.protocol}//${proxyUrl.hostname}:${proxyUrl.port}`,
-        username: proxyUrl.username ? decodeURIComponent(proxyUrl.username) : undefined,
-        password: proxyUrl.password ? decodeURIComponent(proxyUrl.password) : undefined
-      };
-      console.log(`[Proxy] HTTP_PROXY detected: server=${PROXY_CONFIG.server}, auth=${PROXY_CONFIG.username ? 'Yes' : 'No'}`);
-    } catch (e) {
-      console.error('[Proxy] Invalid HTTP_PROXY format. Expected: http://user:pass@host:port or http://host:port');
-      process.exit(1);
+    // 2. Fallback to HTTP_PROXY (traditional http://user:pass@host:port)
+    if (HTTP_PROXY) {
+        try {
+            const proxyUrl = new URL(HTTP_PROXY);
+            PROXY_CONFIG = {
+                server: `${proxyUrl.protocol}//${proxyUrl.hostname}:${proxyUrl.port}`,
+                username: proxyUrl.username ? decodeURIComponent(proxyUrl.username) : undefined,
+                password: proxyUrl.password ? decodeURIComponent(proxyUrl.password) : undefined
+            };
+            console.log(`[Proxy] HTTP_PROXY detected: server=${PROXY_CONFIG.server}, auth=${PROXY_CONFIG.username ? 'Yes' : 'No'}`);
+        } catch (e) {
+            console.error('[Proxy] Invalid HTTP_PROXY format. Expected: http://user:pass@host:port or http://host:port');
+            process.exit(1);
+        }
     }
-  }
 }
 
 // --- INJECTED_SCRIPT ---
@@ -155,43 +155,43 @@ const INJECTED_SCRIPT = `
 
 // 辅助函数：检测代理是否可用
 async function checkProxy() {
-  if (!PROXY_CONFIG) return true;
+    if (!PROXY_CONFIG) return true;
 
-  console.log('[Proxy] Validating proxy connection...');
-  try {
-    const axiosConfig = {
-      proxy: false,
-      timeout: 10000
-    };
-
-    if (PROXY_CONFIG.server === SINGBOX_LOCAL_PROXY) {
-      // sing-box local proxy: use as plain HTTP proxy, no auth needed
-      axiosConfig.proxy = {
-        protocol: 'http',
-        host: '127.0.0.1',
-        port: 8080,
-      };
-    } else {
-      axiosConfig.proxy = {
-        protocol: 'http',
-        host: new URL(PROXY_CONFIG.server).hostname,
-        port: new URL(PROXY_CONFIG.server).port,
-      };
-      if (PROXY_CONFIG.username && PROXY_CONFIG.password) {
-        axiosConfig.proxy.auth = {
-          username: PROXY_CONFIG.username,
-          password: PROXY_CONFIG.password
+    console.log('[Proxy] Validating proxy connection...');
+    try {
+        const axiosConfig = {
+            proxy: false,
+            timeout: 10000
         };
-      }
-    }
 
-    await axios.get('https://www.google.com', axiosConfig);
-    console.log('[Proxy] Connection successful!');
-    return true;
-  } catch (error) {
-    console.error(`[Proxy] Connection failed: ${error.message}`);
-    return false;
-  }
+        if (PROXY_CONFIG.server === SINGBOX_LOCAL_PROXY) {
+            // sing-box local proxy: use as plain HTTP proxy, no auth needed
+            axiosConfig.proxy = {
+                protocol: 'http',
+                host: '127.0.0.1',
+                port: 8080,
+            };
+        } else {
+            axiosConfig.proxy = {
+                protocol: 'http',
+                host: new URL(PROXY_CONFIG.server).hostname,
+                port: new URL(PROXY_CONFIG.server).port,
+            };
+            if (PROXY_CONFIG.username && PROXY_CONFIG.password) {
+                axiosConfig.proxy.auth = {
+                    username: PROXY_CONFIG.username,
+                    password: PROXY_CONFIG.password
+                };
+            }
+        }
+
+        await axios.get('https://www.google.com', axiosConfig);
+        console.log('[Proxy] Connection successful!');
+        return true;
+    } catch (error) {
+        console.error(`[Proxy] Connection failed: ${error.message}`);
+        return false;
+    }
 }
 
 function checkPort(port) {
@@ -339,7 +339,7 @@ async function dispatchCdpClick(page, x, y) {
         console.log('>> CDP 点击失败:', e.message);
         return false;
     } finally {
-        await client.detach().catch(() => {});
+        await client.detach().catch(() => { });
     }
 }
 
@@ -432,7 +432,7 @@ async function attemptAltchaClick(page, currentStatus = null) {
             }
 
             await page.waitForTimeout(500);
-            await altchaWidget.scrollIntoViewIfNeeded().catch(() => {});
+            await altchaWidget.scrollIntoViewIfNeeded().catch(() => { });
 
             let boxInfo = await page.evaluate(() => {
                 const widget = document.querySelector('altcha-widget');
@@ -588,28 +588,28 @@ async function solveAltchaIfPresent(page, stageName = "Renew阶段", maxAttempts
 }
 
 (async () => {
-  // Random delay for scheduled runs (anti-detection)
-  if (GITHUB_EVENT_NAME === 'schedule') {
-    const maxDelaySec = 3 * 60 * 60;
-    const delaySec = Math.floor(Math.random() * maxDelaySec);
-    const hours = Math.floor(delaySec / 3600);
-    const minutes = Math.floor((delaySec % 3600) / 60);
-    const seconds = delaySec % 60;
-    console.log(`[Anti-Detection] Scheduled run: random delay ${hours}h ${minutes}m ${seconds}s...`);
-    await new Promise(r => setTimeout(r, delaySec * 1000));
-  } else {
-    console.log(`[Anti-Detection] Manual/direct run: skipping random delay.`);
-  }
+    // Random delay for scheduled runs (anti-detection)
+    if (GITHUB_EVENT_NAME === 'schedule') {
+        const maxDelaySec = 3 * 60 * 60;
+        const delaySec = Math.floor(Math.random() * maxDelaySec);
+        const hours = Math.floor(delaySec / 3600);
+        const minutes = Math.floor((delaySec % 3600) / 60);
+        const seconds = delaySec % 60;
+        console.log(`[Anti-Detection] Scheduled run: random delay ${hours}h ${minutes}m ${seconds}s...`);
+        await new Promise(r => setTimeout(r, delaySec * 1000));
+    } else {
+        console.log(`[Anti-Detection] Manual/direct run: skipping random delay.`);
+    }
 
-  const users = getUsers();
-  if (users.length === 0) {
-    console.log('未在 process.env.USERS_JSON 中找到用户');
-    process.exit(1);
-  }
+    const users = getUsers();
+    if (users.length === 0) {
+        console.log('未在 process.env.USERS_JSON 中找到用户');
+        process.exit(1);
+    }
 
-  await resolveProxyConfig();
+    await resolveProxyConfig();
 
-  if (PROXY_CONFIG) {
+    if (PROXY_CONFIG) {
         const isValid = await checkProxy();
         if (!isValid) {
             console.error('[代理] 代理无效，终止运行。');
@@ -692,10 +692,10 @@ async function solveAltchaIfPresent(page, stageName = "Renew阶段", maxAttempts
                 // --- Cloudflare Turnstile Bypass for Login ---
                 console.log('   >> 正在登录前检查 Turnstile (使用 CDP 绕过)...');
                 let cdpClickResult = false;
-                for (let findAttempt = 0; findAttempt < 15; findAttempt++) {
+                for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
                     cdpClickResult = await attemptTurnstileCdp(page);
                     if (cdpClickResult) break;
-                    await page.waitForTimeout(1000);
+                    await page.waitForTimeout(1000 * Math.pow(2, findAttempt));
                 }
 
                 if (cdpClickResult) {
@@ -729,15 +729,15 @@ async function solveAltchaIfPresent(page, stageName = "Renew阶段", maxAttempts
                 // User Request: Check for incorrect password
                 try {
                     const errorMsg = page.getByText('Incorrect password or no account');
-        if (await errorMsg.isVisible({ timeout: 3000 })) {
-          console.error(` >> ❌ 登录失败: 用户 ${user.username} 账号或密码错误`);
-          const failPhotoDir = path.join(process.cwd(), 'screenshots');
-          if (!fs.existsSync(failPhotoDir)) fs.mkdirSync(failPhotoDir, { recursive: true });
-          const failSafeName = user.username.replace(/[^a-z0-9]/gi, '_');
-          const failShotPath = path.join(failPhotoDir, `${failSafeName}_login_fail.png`);
-          try { await page.screenshot({ path: failShotPath, fullPage: true }); } catch (e) { }
+                    if (await errorMsg.isVisible({ timeout: 3000 })) {
+                        console.error(` >> ❌ 登录失败: 用户 ${user.username} 账号或密码错误`);
+                        const failPhotoDir = path.join(process.cwd(), 'screenshots');
+                        if (!fs.existsSync(failPhotoDir)) fs.mkdirSync(failPhotoDir, { recursive: true });
+                        const failSafeName = user.username.replace(/[^a-z0-9]/gi, '_');
+                        const failShotPath = path.join(failPhotoDir, `${failSafeName}_login_fail.png`);
+                        try { await page.screenshot({ path: failShotPath, fullPage: true }); } catch (e) { }
 
-          await sendTelegramMessage(`❌ *登录失败*\n用户: ${user.username}\n原因: 账号或密码错误`, failShotPath);
+                        await sendTelegramMessage(`❌ *登录失败*\n用户: ${user.username}\n原因: 账号或密码错误`, failShotPath);
 
                         continue;
                     }
@@ -792,11 +792,11 @@ async function solveAltchaIfPresent(page, stageName = "Renew阶段", maxAttempts
                     // B. 找 Turnstile (小重试)
                     console.log('正在检查 Turnstile (使用 CDP 绕过)...');
                     let cdpClickResult = false;
-                    for (let findAttempt = 0; findAttempt < 30; findAttempt++) {
+                    for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
                         cdpClickResult = await attemptTurnstileCdp(page);
                         if (cdpClickResult) break;
-                        console.log(`   >> [寻找尝试 ${findAttempt + 1}/30] 尚未找到 Turnstile 复选框...`);
-                        await page.waitForTimeout(1000);
+                        console.log(`   >> [寻找尝试 ${findAttempt + 1}/5] 尚未找到 Turnstile 复选框...`);
+                        await page.waitForTimeout(1000 * Math.pow(2, findAttempt));
                     }
 
                     let isTurnstileSuccess = false;
